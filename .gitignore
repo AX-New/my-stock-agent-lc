@@ -1,0 +1,35 @@
+# 凭据
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志 / 临时产出
+logs/
+*.log
+tmp/
+output/
+
+# 向量库本地存储
+chroma/
+faiss_index/
+*.faiss
+*.pkl
+
+# Claude 本地权限
+.claude/settings.local.json
