@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>my-stock-agent-lc · LangChain Agent 学习</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 12px 20px;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+    header .sub { color: #94a3b8; font-size: 13px; }
+    header .controls { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    select, input[type=text], button {
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    button { cursor: pointer; }
+    button:hover { background: #1e293b; }
+    button.primary { background: #3b82f6; border-color: #3b82f6; color: white; }
+    button.primary:hover { background: #2563eb; }
+    button.warn { background: #ef4444; border-color: #ef4444; color: white; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .msg {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      line-height: 1.55;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #2563eb;
+      color: white;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .events {
+      align-self: flex-start;
+      max-width: 80%;
+      font-size: 12px;
+      color: #94a3b8;
+      background: #0b1220;
+      border: 1px dashed #334155;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .events .ev { display: block; margin: 2px 0; }
+    .events .ev.tool { color: #fbbf24; }
+    .events .ev.node { color: #86efac; }
+    .events .ev.error { color: #fca5a5; }
+    footer {
+      padding: 12px 20px;
+      border-top: 1px solid #334155;
+      background: #1e293b;
+      display: flex;
+      gap: 8px;
+    }
+    footer input { flex: 1; }
+    .agent-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      padding: 4px 8px;
+      background: #0b1220;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 my-stock-agent-lc</h1>
+  <span class="sub">LangChain · Agent 学习</span>
+  <div class="controls">
+    <label>Agent：
+      <select id="agent">
+        <option value="single">single (tool + memory)</option>
+        <option value="rag">rag (RAG + memory)</option>
+        <option value="plan">plan (plan-and-execute)</option>
+        <option value="multi">multi (supervisor 多 agent)</option>
+      </select>
+    </label>
+    <span id="agentDesc" class="agent-desc"></span>
+    <button id="ingestBtn" title="重新灌入 data/ 目录所有文档进 Chroma">重灌 RAG</button>
+    <button id="clearBtn" class="warn">清空对话</button>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<footer>
+  <input id="input" type="text" placeholder="输入问题，回车发送（试试：'半导体 Q1 怎么样？'、'比亚迪最近怎么样？'）" />
+  <button id="sendBtn" class="primary">发送</button>
+</footer>
+
+<script>
+const AGENT_DESC = {
+  single: "基础 tool-calling agent + 会话记忆（calculator/time/mock_search）",
+  rag: "tool-calling agent + RAG 检索工具 + 会话记忆",
+  plan: "Plan-and-Execute：先规划步骤，再分步执行，最后汇总",
+  multi: "Supervisor 多 agent：研究员 + 分析师 + 写手 协作（无记忆）",
+};
+
+const $ = (id) => document.getElementById(id);
+const main = $("main");
+const input = $("input");
+const sendBtn = $("sendBtn");
+const ingestBtn = $("ingestBtn");
+const clearBtn = $("clearBtn");
+const agentSel = $("agent");
+const agentDesc = $("agentDesc");
+
+// 简单的会话 thread_id（页面级），刷新即新会话
+const threadId = "thread-" + Math.random().toString(36).slice(2, 10);
+
+function updateAgentDesc() {
+  agentDesc.textContent = AGENT_DESC[agentSel.value] || "";
+}
+agentSel.addEventListener("change", updateAgentDesc);
+updateAgentDesc();
+
+function appendMsg(role, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  main.appendChild(div);
+  main.scrollTop = main.scrollHeight;
+  return div;
+}
+
+function appendEventsBox() {
+  const div = document.createElement("div");
+  div.className = "events";
+  main.appendChild(div);
+  main.scrollTop = main.scrollHeight;
+  return div;
+}
+
+// 安全地把一行事件追加到 eventsBox（textContent，不走 innerHTML）
+function pushEvent(eventsBox, klass, text) {
+  const span = document.createElement("span");
+  span.className = "ev " + (klass || "");
+  span.textContent = text;
+  eventsBox.appendChild(span);
+  main.scrollTop = main.scrollHeight;
+}
+
+clearBtn.addEventListener("click", () => {
+  while (main.firstChild) main.removeChild(main.firstChild);
+});
+
+ingestBtn.addEventListener("click", async () => {
+  ingestBtn.disabled = true;
+  ingestBtn.textContent = "正在灌入...";
+  try {
+    const r = await fetch("/api/ingest", { method: "POST" });
+    const data = await r.json();
+    appendMsg("assistant", `📥 RAG 灌入完成：${data.files} 个文件 → ${data.chunks} 个 chunk，耗时 ${data.elapsed}s`);
+  } catch (e) {
+    appendMsg("assistant", "❌ 灌入失败：" + e.message);
+  } finally {
+    ingestBtn.disabled = false;
+    ingestBtn.textContent = "重灌 RAG";
+  }
+});
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  sendBtn.disabled = true;
+  appendMsg("user", text);
+  const eventsBox = appendEventsBox();
+  const respMsg = appendMsg("assistant", "");
+
+  try {
+    const resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        agent: agentSel.value,
+        thread_id: threadId,
+      }),
+    });
+    if (!resp.ok || !resp.body) {
+      throw new Error("HTTP " + resp.status);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split("\n\n");
+      buf = parts.pop();
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith("data:")) continue;
+        const json = line.slice(5).trim();
+        if (!json) continue;
+        let ev;
+        try { ev = JSON.parse(json); } catch { continue; }
+        handleEvent(ev, eventsBox, respMsg);
+      }
+    }
+  } catch (e) {
+    pushEvent(eventsBox, "error", "❌ " + e.message);
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+function handleEvent(ev, eventsBox, respMsg) {
+  switch (ev.type) {
+    case "token":
+      respMsg.textContent += ev.content;
+      main.scrollTop = main.scrollHeight;
+      break;
+    case "tool_start":
+      pushEvent(eventsBox, "tool", `🔧 调用工具 [${ev.name}] 输入: ${JSON.stringify(ev.input)}`);
+      break;
+    case "tool_end":
+      pushEvent(eventsBox, "tool", `↩️ 工具 [${ev.name}] 返回: ${String(ev.output || "").slice(0, 200)}`);
+      break;
+    case "node":
+      if (ev.phase === "start") {
+        pushEvent(eventsBox, "node", `▶️ 进入节点 [${ev.name}]`);
+      }
+      break;
+    case "done":
+      pushEvent(eventsBox, "", "✅ 完成");
+      break;
+    case "error":
+      pushEvent(eventsBox, "error", "❌ " + ev.message);
+      break;
+  }
+}
+
+sendBtn.addEventListener("click", send);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+input.focus();
+</script>
+
+</body>
+</html>
