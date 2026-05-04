@@ -27,9 +27,14 @@ output/
 
 # 向量库本地存储
 chroma/
+chroma_db/
 faiss_index/
 *.faiss
 *.pkl
+
+# HF/sentence-transformers 本地缓存
+.cache/
+models/
 
 # Claude 本地权限
 .claude/settings.local.json
