@@ -5,7 +5,7 @@
 | 项 | 说明 |
 |---|---|
 | 定位 | **学习/试验项目**：用 LangChain 完整复刻一套传统 agent 形态（tool use / memory / plan / multi-agent / RAG），配 SSE 流式输出 + Web UI，作为团队 LC 选型与教学参考。 |
-| 技术栈 | Python 3.11 / LangChain / LangGraph / ChromaDB / FastAPI / 原生 HTML+JS |
+| 技术栈 | Python 3.11 / LangChain / LangGraph / ChromaDB / FastAPI / 原生 HTML+JS。LLM 默认走火山方舟豆包（OpenAI 兼容），可切 Anthropic |
 | 关联项目 | `my-stock-agent`（主 agent / Claude Agent SDK 形态）、`my-stock-quant`（生产化承接方） |
 
 ## 学习目标
@@ -102,7 +102,7 @@ cd /opt/my-stock-agent-lc && conda activate my-stock-agent-lc && python xxx.py
 
 1. **拒绝多层 LCEL pipe 嵌套** — 超过 3 层就拆成显式 Python 函数链，调试更清楚
 2. **LangSmith 不上** — 观测先用普通 logging + JSON dump，需要再说
-3. **provider 默认 Anthropic** — 哪怕 LC 是 provider 无关的，本项目默认 Claude；要切别的 provider 必须在 task 文档里写清动机
+3. **provider 默认 Volcengine 豆包**（OpenAI 兼容协议）；备选 Anthropic Claude。切换通过 `.env` 的 `LLM_PROVIDER` 字段控制。新增 provider 必须在 task 文档里写清动机
 4. **LangGraph 用于多 agent 编排和状态机** — 简单单 agent / 单线流水线就用普通 Python，不要无脑套 LangGraph
 5. **版本锁** — `requirements.txt` 锁死 langchain / langchain-anthropic / langgraph 主版本，LC 升级破坏性变更频繁，不锁死会踩
 

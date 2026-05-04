@@ -81,7 +81,8 @@ def _supervisor_node(state: TeamState) -> dict:
         return {"next": "FINISH", "iterations": state.get("iterations", 0) + 1}
 
     llm = make_llm(streaming=False, temperature=0.0)
-    structured = llm.with_structured_output(_Route)
+    # method="function_calling" 兼容更广：豆包/部分国内模型不支持 OpenAI 新版 json_schema
+    structured = llm.with_structured_output(_Route, method="function_calling")
     decision: _Route = structured.invoke(
         [SystemMessage(content=SUPERVISOR_PROMPT), *state["messages"]]
     )
