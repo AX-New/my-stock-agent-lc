@@ -1,33 +1,27 @@
-# My Stock Agent LC - LangChain 子系统（RAG / 文档抽取 / 固定流水线）
+# My Stock Agent LC - LangChain + 传统 Agent 学习项目
 
 ## 项目概况
 
 | 项 | 说明 |
 |---|---|
-| 定位 | 基于 LangChain 的子系统，承接 LC 真正擅长的部分：研报/公告/新闻 RAG、文档结构化抽取、provider-portable 的固定流水线。**不做开放式 agentic 探索**。 |
-| 技术栈 | Python 3.11 / LangChain / LangGraph（仅在确定要状态机时） / 向量库（待定）/ FastAPI |
-| 关联项目 | `my-stock-agent`（主 agent / Claude Agent SDK 形态，开放探索）、`my-stock-quant`（生产化承接方） |
+| 定位 | **学习/试验项目**：用 LangChain 完整复刻一套传统 agent 形态（tool use / memory / plan / multi-agent / RAG），配 SSE 流式输出 + Web UI，作为团队 LC 选型与教学参考。 |
+| 技术栈 | Python 3.11 / LangChain / LangGraph / ChromaDB / FastAPI / 原生 HTML+JS |
+| 关联项目 | `my-stock-agent`（主 agent / Claude Agent SDK 形态）、`my-stock-quant`（生产化承接方） |
 
-## 与 my-stock-agent 的边界
+## 学习目标
 
-**两个 agent 项目不是替代关系，是分工**：
+1. **Tool Use** — LangChain tool-calling agent，挂多个工具
+2. **Memory** — 会话记忆（buffer / summary）
+3. **Plan** — plan-and-execute：先规划再执行
+4. **Multi-Agent** — supervisor 模式，多个专精 agent 协作
+5. **RAG** — ChromaDB 向量库 + retriever tool
+6. **SSE** — FastAPI 流式输出 token
+7. **Web UI** — 简单聊天界面，EventSource 接 SSE
 
-| 项目 | 形态 | 适合的任务 |
-|------|------|------|
-| **my-stock-agent** | Claude Agent SDK，开放 agent loop | 自查 DB、自提分析思路、自写代码、自跑回测、自评结果——**动态决策、路径不固定** |
-| **my-stock-agent-lc** | LangChain，确定性流水线 | 研报/公告/新闻 PDF → 切分 → 向量化 → 检索；新闻 → 风格信号抽取 → 入库；**步骤固定、可画 DAG** |
+## 不在范围内
 
-**绝不在 LC 项目里做开放 agent**：LangChain 的 ReAct / 多工具动态路由场景已被验证脆弱（token 爆炸、loop 卡死、多层抽象难调试），那种活全部回到 my-stock-agent 用 Claude Agent SDK 做。
-
-**调用方向**：
-- my-stock-agent 可以把 LC 项目当成「文档检索工具」调用（HTTP 或 import）
-- LC 项目不调用 my-stock-agent
-
-## 不在范围内（明确边界）
-
-- ❌ 开放式 agentic 决策（用 Claude Agent SDK，去 my-stock-agent）
-- ❌ 直接调度回测 / 训练（用 my-stock-quant 的 pipeline）
-- ❌ 写生产库（`my_stock_quant`），只能写本项目自己的文档/向量库
+- ❌ 直接写生产库（`my_stock` / `my_stock_quant`），只能用本项目自己的文档/向量库
+- ❌ 直接调度回测 / 训练（那是 `my-stock-quant` 的活）
 
 ## 代码规范
 
@@ -109,7 +103,7 @@ cd /opt/my-stock-agent-lc && conda activate my-stock-agent-lc && python xxx.py
 1. **拒绝多层 LCEL pipe 嵌套** — 超过 3 层就拆成显式 Python 函数链，调试更清楚
 2. **LangSmith 不上** — 观测先用普通 logging + JSON dump，需要再说
 3. **provider 默认 Anthropic** — 哪怕 LC 是 provider 无关的，本项目默认 Claude；要切别的 provider 必须在 task 文档里写清动机
-4. **LangGraph 仅用于真状态机** — 简单 DAG 就用普通 Python，不要无脑 LangGraph
+4. **LangGraph 用于多 agent 编排和状态机** — 简单单 agent / 单线流水线就用普通 Python，不要无脑套 LangGraph
 5. **版本锁** — `requirements.txt` 锁死 langchain / langchain-anthropic / langgraph 主版本，LC 升级破坏性变更频繁，不锁死会踩
 
 ## 安全规范
