@@ -10,7 +10,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 # 支持的 agent 类型
-AgentType = Literal["single", "rag", "plan", "multi"]
+# - single:          tool-calling agent + memory（无 RAG）
+# - traditional_rag: 经典 retrieve→stuff→answer，无 agent loop（无 memory）
+# - rag:             agentic RAG，retriever 当 tool（有 memory）
+# - plan:            plan-and-execute（无 memory）
+# - multi:           supervisor 多 agent（无 memory）
+# - unified:         综合体：全工具 + memory + 自主决策（日常用最实用）
+AgentType = Literal["single", "traditional_rag", "rag", "plan", "multi", "unified"]
 
 
 class ChatRequest(BaseModel):

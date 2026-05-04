@@ -28,6 +28,8 @@ from app.agents.multi_agent import build_multi_agent
 from app.agents.planner import build_planner_agent
 from app.agents.rag_agent import build_rag_agent
 from app.agents.single_agent import build_single_agent
+from app.agents.traditional_rag import build_traditional_rag
+from app.agents.unified_agent import build_unified_agent
 from app.api.schemas import ChatRequest, IngestResponse
 from app.api.sse import stream_agent_events
 from app.config import PROJECT_ROOT, SERVER_PORT, setup_logging
@@ -45,9 +47,11 @@ def _agents() -> dict:
     logger.info("初始化所有 agent 实例...")
     a = {
         "single": build_single_agent(),
+        "traditional_rag": build_traditional_rag(),
         "rag": build_rag_agent(),
         "plan": build_planner_agent(),
         "multi": build_multi_agent(),
+        "unified": build_unified_agent(),
     }
     logger.info("agent 实例构建完成: %s", list(a.keys()))
     return a
@@ -102,10 +106,9 @@ async def chat(req: ChatRequest):
     agent = agents[req.agent]
 
     inputs = {"messages": [{"role": "user", "content": req.message}]}
-    # planner / multi 是非 checkpointer 的图，传 thread_id 会报错；
-    # single / rag 是带 checkpointer 的，要传 thread_id 才能记忆
+    # 带 checkpointer 的 agent 才需要传 thread_id
     config: dict | None = None
-    if req.agent in ("single", "rag"):
+    if req.agent in ("single", "rag", "unified"):
         config = {"configurable": {"thread_id": req.thread_id}}
 
     logger.info("收到 chat 请求 agent=%s thread=%s", req.agent, req.thread_id)
