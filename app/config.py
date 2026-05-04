@@ -40,10 +40,35 @@ def _optional(key: str, default: str) -> str:
     return os.getenv(key) or default
 
 
-# ============== Anthropic ==============
-ANTHROPIC_API_KEY: str = _required("ANTHROPIC_API_KEY")
-LLM_MODEL: str = _optional("LLM_MODEL", "claude-sonnet-4-6")
+# ============== LLM Provider ==============
+# 默认 Volcengine（豆包系列，OpenAI 兼容协议）。
+# 切回 Anthropic 见 .env.example 注释。
+LLM_PROVIDER: str = _optional("LLM_PROVIDER", "volcengine")  # volcengine | anthropic
+
+# Volcengine（OpenAI 兼容）
+VOLCENGINE_API_KEY: str = _optional("VOLCENGINE_API_KEY", "")
+VOLCENGINE_BASE_URL: str = _optional(
+    "VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/coding/v3"
+)
+
+# Anthropic（保留，便于切回）
+ANTHROPIC_API_KEY: str = _optional("ANTHROPIC_API_KEY", "")
+
+# 通用 LLM 参数
+LLM_MODEL: str = _optional("LLM_MODEL", "doubao-seed-2.0-pro")
 LLM_TEMPERATURE: float = float(_optional("LLM_TEMPERATURE", "0.2"))
+
+
+def validate_llm_config() -> None:
+    """启动期校验：当前 provider 的密钥必须配齐。"""
+    if LLM_PROVIDER == "volcengine":
+        if not VOLCENGINE_API_KEY:
+            raise RuntimeError("LLM_PROVIDER=volcengine 但未配置 VOLCENGINE_API_KEY")
+    elif LLM_PROVIDER == "anthropic":
+        if not ANTHROPIC_API_KEY:
+            raise RuntimeError("LLM_PROVIDER=anthropic 但未配置 ANTHROPIC_API_KEY")
+    else:
+        raise RuntimeError(f"不支持的 LLM_PROVIDER: {LLM_PROVIDER}")
 
 # ============== Embedding ==============
 EMBEDDING_MODEL: str = _optional("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
@@ -76,6 +101,9 @@ def setup_logging(level: int = logging.INFO) -> None:
 
 __all__ = [
     "PROJECT_ROOT",
+    "LLM_PROVIDER",
+    "VOLCENGINE_API_KEY",
+    "VOLCENGINE_BASE_URL",
     "ANTHROPIC_API_KEY",
     "LLM_MODEL",
     "LLM_TEMPERATURE",
@@ -85,4 +113,5 @@ __all__ = [
     "SERVER_PORT",
     "DOCS_DIR",
     "setup_logging",
+    "validate_llm_config",
 ]
